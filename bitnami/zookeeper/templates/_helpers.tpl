@@ -1,34 +1,31 @@
 {{/* vim: set filetype=mustache: */}}
+
 {{/*
-Expand the name of the chart.
+Return the proper Zookeeper image name
 */}}
-{{- define "zookeeper.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- define "zookeeper.image" -}}
+{{ include "common.images.image" (dict "imageRoot" .Values.image "global" .Values.global) }}
 {{- end -}}
 
 {{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-If release name contains chart name it will be used as a full name.
+Return the proper image name (for the init container volume-permissions image)
 */}}
-{{- define "zookeeper.fullname" -}}
-{{- if .Values.fullnameOverride -}}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- $name := default .Chart.Name .Values.nameOverride -}}
-{{- if contains $name .Release.Name -}}
-{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
+{{- define "zookeeper.volumePermissions.image" -}}
+{{ include "common.images.image" (dict "imageRoot" .Values.volumePermissions.image "global" .Values.global) }}
 {{- end -}}
 
 {{/*
-Create chart name and version as used by the chart label.
+Return the proper Docker Image Registry Secret Names
 */}}
-{{- define "zookeeper.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- define "zookeeper.imagePullSecrets" -}}
+{{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.volumePermissions.image) "global" .Values.global) -}}
+{{- end -}}
+
+{{/*
+Check if there are rolling tags in the images
+*/}}
+{{- define "zookeeper.checkRollingTags" -}}
+{{- include "common.warnings.rollingTag" .Values.image }}
 {{- end -}}
 
 {{/*
@@ -36,99 +33,10 @@ Create chart name and version as used by the chart label.
  */}}
 {{- define "zookeeper.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
-    {{ default (include "zookeeper.fullname" .) .Values.serviceAccount.name }}
+    {{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
 {{- else -}}
     {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
-{{- end -}}
-
-{{/*
-Return the proper Zookeeper image name
-*/}}
-{{- define "zookeeper.image" -}}
-{{- $registryName := .Values.image.registry -}}
-{{- $repositoryName := .Values.image.repository -}}
-{{- $tag := .Values.image.tag | toString -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 doesn't support it, so we need to implement this if-else logic.
-Also, we can't use a single if because lazy evaluation is not an option
-*/}}
-{{- if .Values.global }}
-    {{- if .Values.global.imageRegistry }}
-        {{- printf "%s/%s:%s" .Values.global.imageRegistry $repositoryName $tag -}}
-    {{- else -}}
-        {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-    {{- end -}}
-{{- else -}}
-    {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Return the proper Docker Image Registry Secret Names
-*/}}
-{{- define "zookeeper.imagePullSecrets" -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 does not support it, so we need to implement this if-else logic.
-Also, we can not use a single if because lazy evaluation is not an option
-*/}}
-{{- if .Values.global }}
-{{- if .Values.global.imagePullSecrets }}
-imagePullSecrets:
-{{- range .Values.global.imagePullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- else if or .Values.image.pullSecrets .Values.volumePermissions.image.pullSecrets }}
-imagePullSecrets:
-{{- range .Values.image.pullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- range .Values.volumePermissions.image.pullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- end -}}
-{{- else if or .Values.image.pullSecrets .Values.volumePermissions.image.pullSecrets }}
-imagePullSecrets:
-{{- range .Values.image.pullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- range .Values.volumePermissions.image.pullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Common labels
-*/}}
-{{- define "zookeeper.labels" -}}
-app.kubernetes.io/name: {{ include "zookeeper.name" . }}
-helm.sh/chart: {{ include "zookeeper.chart" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end -}}
-
-{{/*
-Renders a value that contains template.
-Usage:
-{{ include "zookeeper.tplValue" ( dict "value" .Values.path.to.the.Value "context" $) }}
-*/}}
-{{- define "zookeeper.tplValue" -}}
-    {{- if typeIs "string" .value }}
-        {{- tpl .value .context }}
-    {{- else }}
-        {{- tpl (.value | toYaml) .context }}
-    {{- end }}
-{{- end -}}
-
-{{/*
-Labels to use on deploy.spec.selector.matchLabels and svc.spec.selector
-*/}}
-{{- define "zookeeper.matchLabels" -}}
-app.kubernetes.io/name: {{ include "zookeeper.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/*
@@ -154,71 +62,113 @@ Return ZooKeeper Servers Passwords
 {{- end -}}
 
 {{/*
-Return the proper image name (for the init container volume-permissions image)
+Return ZooKeeper Namespace to use
 */}}
-{{- define "zookeeper.volumePermissions.image" -}}
-{{- $registryName := .Values.volumePermissions.image.registry -}}
-{{- $repositoryName := .Values.volumePermissions.image.repository -}}
-{{- $tag := .Values.volumePermissions.image.tag | toString -}}
+{{- define "zookeeper.namespace" -}}
+    {{- if .Values.namespaceOverride }}
+        {{- .Values.namespaceOverride -}}
+    {{- else }}
+        {{- .Release.Namespace -}}
+    {{- end }}
+{{- end -}}
+
 {{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 doesn't support it, so we need to implement this if-else logic.
-Also, we can't use a single if because lazy evaluation is not an option
+Return the secret containing Zookeeper quorum TLS certificates
 */}}
-{{- if .Values.global }}
-    {{- if .Values.global.imageRegistry }}
-        {{- printf "%s/%s:%s" .Values.global.imageRegistry $repositoryName $tag -}}
-    {{- else -}}
-        {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-    {{- end -}}
+{{- define "zookeeper.quorum.tlsSecretName" -}}
+{{- $secretName := .Values.tls.quorum.existingSecret -}}
+{{- if $secretName -}}
+    {{- printf "%s" (tpl $secretName $) -}}
 {{- else -}}
-    {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
+    {{- printf "%s-quorum-crt" (include "common.names.fullname" .) -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Return the proper Storage Class
+Return true if a TLS secret object should be created
 */}}
-{{- define "zookeeper.storageClass" -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 does not support it, so we need to implement this if-else logic.
-*/}}
-{{- if .Values.global -}}
-    {{- if .Values.global.storageClass -}}
-        {{- if (eq "-" .Values.global.storageClass) -}}
-            {{- printf "storageClassName: \"\"" -}}
-        {{- else }}
-            {{- printf "storageClassName: %s" .Values.global.storageClass -}}
-        {{- end -}}
-    {{- else -}}
-        {{- if .Values.persistence.storageClass -}}
-              {{- if (eq "-" .Values.persistence.storageClass) -}}
-                  {{- printf "storageClassName: \"\"" -}}
-              {{- else }}
-                  {{- printf "storageClassName: %s" .Values.persistence.storageClass -}}
-              {{- end -}}
-        {{- end -}}
-    {{- end -}}
-{{- else -}}
-    {{- if .Values.persistence.storageClass -}}
-        {{- if (eq "-" .Values.persistence.storageClass) -}}
-            {{- printf "storageClassName: \"\"" -}}
-        {{- else }}
-            {{- printf "storageClassName: %s" .Values.persistence.storageClass -}}
-        {{- end -}}
-    {{- end -}}
+{{- define "zookeeper.quorum.createTlsSecret" -}}
+{{- if and .Values.tls.quorum.enabled .Values.tls.quorum.autoGenerated (not .Values.tls.quorum.existingSecret)}}
+    {{- true -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Return podAnnotations
+Return the name of the secret containing the Keystore and truststore password
 */}}
-{{- define "zookeeper.podAnnotations" -}}
-{{- if .Values.podAnnotations }}
-{{- toYaml .Values.podAnnotations | nindent 0 }}
-{{- end }}
-{{- if .Values.metrics.podAnnotations }}
-{{- include "zookeeper.tplValue" ( dict "value" .Values.metrics.podAnnotations "context" $) | nindent 0 }}
-{{- end }}
+{{- define "zookeeper.quorum.tlsPasswordsSecret" -}}
+{{- $secretName := .Values.tls.quorum.passwordsSecretName -}}
+{{- if $secretName -}}
+    {{- printf "%s" (tpl $secretName $) -}}
+{{- else -}}
+    {{- printf "%s-quorum-tls-pass" (include "common.names.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the secret containing Zookeper client TLS certificates
+*/}}
+{{- define "zookeeper.client.tlsSecretName" -}}
+{{- $secretName := .Values.tls.client.existingSecret -}}
+{{- if $secretName -}}
+    {{- printf "%s" (tpl $secretName $) -}}
+{{- else -}}
+    {{- printf "%s-client-crt" (include "common.names.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return true if a TLS secret object should be created
+*/}}
+{{- define "zookeeper.client.createTlsSecret" -}}
+{{- if and .Values.tls.client.enabled .Values.tls.client.autoGenerated (not .Values.tls.client.existingSecret) }}
+    {{- true -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the name of the secret containing the Keystore and truststore password
+*/}}
+{{- define "zookeeper.client.tlsPasswordsSecret" -}}
+{{- $secretName := .Values.tls.client.passwordsSecretName -}}
+{{- if $secretName -}}
+    {{- printf "%s" (tpl $secretName $) -}}
+{{- else -}}
+    {{- printf "%s-client-tls-pass" (include "common.names.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Compile all warnings into a single message.
+*/}}
+{{- define "zookeeper.validateValues" -}}
+{{- $messages := list -}}
+{{- $messages := append $messages (include "zookeeper.validateValues.client.tls" .) -}}
+{{- $messages := append $messages (include "zookeeper.validateValues.quorum.tls" .) -}}
+{{- $messages := without $messages "" -}}
+{{- $message := join "\n" $messages -}}
+
+{{- if $message -}}
+{{-   printf "\nVALUES VALIDATION:\n%s" $message | fail -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Validate values of Zookeeper - Client TLS enabled */}}
+{{- define "zookeeper.validateValues.client.tls" -}}
+{{- if and .Values.tls.client.enabled (not .Values.tls.client.autoGenerated) (not .Values.tls.client.existingSecret) }}
+zookeeper: tls.client.enabled
+    In order to enable Client TLS encryption, you also need to provide
+    an existing secret containing the Keystore and Truststore or
+    enable auto-generated certificates.
+{{- end -}}
+{{- end -}}
+
+{{/* Validate values of Zookeeper - Quorum TLS enabled */}}
+{{- define "zookeeper.validateValues.quorum.tls" -}}
+{{- if and .Values.tls.quorum.enabled (not .Values.tls.quorum.autoGenerated) (not .Values.tls.quorum.existingSecret) }}
+zookeeper: tls.quorum.enabled
+    In order to enable Quorum TLS, you also need to provide
+    an existing secret containing the Keystore and Truststore or
+    enable auto-generated certificates.
+{{- end -}}
 {{- end -}}

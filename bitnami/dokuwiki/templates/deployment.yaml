@@ -1,7 +1,7 @@
-apiVersion: {{ template "dokuwiki.deployment.apiVersion" . }}
+apiVersion: {{ template "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
-  name: {{ template "dokuwiki.fullname" . }}
+  name: {{ template "common.names.fullname" . }}
   labels: {{- include "common.labels.standard" . | nindent 4 }}
     {{- if .Values.commonLabels }}
     {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
@@ -16,7 +16,7 @@ spec:
     metadata:
       labels: {{- include "common.labels.standard" . | nindent 8 }}
         {{- if .Values.commonLabels }}
-        {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+        {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 8 }}
         {{- end }}
         {{- if .Values.podLabels }}
         {{- include "common.tplvalues.render" (dict "value" .Values.podLabels "context" $) | nindent 8 }}
@@ -30,12 +30,22 @@ spec:
         {{- end }}
     spec:
       {{- include "dokuwiki.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.hostAliases }}
+      # yamllint disable rule:indentation
+      hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
+      # yamllint enable rule:indentation
+      {{- end }}
       {{- if .Values.podSecurityContext.enabled }}
       securityContext:
         fsGroup: {{ .Values.podSecurityContext.fsGroup }}
       {{- end }}
       {{- if .Values.affinity }}
       affinity: {{- include "common.tplvalues.render" (dict "value" .Values.affinity "context" $) | nindent 8 }}
+      {{- else }}
+      affinity:
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.podAffinityPreset "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.podAntiAffinityPreset "context" $) | nindent 10 }}
+        nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.nodeAffinityPreset.type "key" .Values.nodeAffinityPreset.key "values" .Values.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.nodeSelector }}
       nodeSelector: {{- include "common.tplvalues.render" (dict "value" .Values.nodeSelector "context" $) | nindent 8 }}
@@ -43,11 +53,26 @@ spec:
       {{- if .Values.tolerations }}
       tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.tolerations "context" $) | nindent 8 }}
       {{- end }}
-      hostAliases:
-        - ip: "127.0.0.1"
-          hostnames:
-            - "status.localhost"
       initContainers:
+        {{- if and .Values.volumePermissions.enabled .Values.persistence.enabled }}
+        - name: volume-permissions
+          image: {{ include "dokuwiki.volumePermissions.image" . }}
+          imagePullPolicy: {{ .Values.volumePermissions.image.pullPolicy | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p "/bitnami/dokuwiki"
+              chown -R "{{ .Values.containerSecurityContext.runAsUser }}:{{ .Values.podSecurityContext.fsGroup }}" "/bitnami/dokuwiki"
+          securityContext:
+            runAsUser: 0
+          {{- if .Values.volumePermissions.resources }}
+          resources: {{- toYaml .Values.volumePermissions.resources | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: dokuwiki-data
+              mountPath: /bitnami/dokuwiki
+        {{- end }}
         {{- if .Values.certificates.customCAs }}
         - name: certificates
           image: {{ template "certificates.image" . }}
@@ -62,13 +87,11 @@ spec:
           {{- else if .Values.certificates.customCertificate.certificateSecret }}
           - sh
           - -c
-          - if command -v apk >/dev/null; then apk add --no-cache ca-certificates openssl && update-ca-certificates;
-            else apt-get update && apt-get install -y ca-certificates openssl; fi
+          - install_packages ca-certificates openssl
           {{- else }}
           - sh
           - -c
-          - if command -v apk >/dev/null; then apk add --no-cache ca-certificates openssl && update-ca-certificates;
-            else apt-get update && apt-get install -y ca-certificates openssl; fi
+          - install_packages ca-certificates openssl
             && openssl req -new -x509 -days 3650 -nodes -sha256
               -subj "/CN=$(hostname)" -addext "subjectAltName = DNS:$(hostname)"
               -out  /etc/ssl/certs/ssl-cert-snakeoil.pem
@@ -99,7 +122,7 @@ spec:
               readOnly: true
         {{- end }}
       containers:
-        - name: {{ template "dokuwiki.fullname" . }}
+        - name: dokuwiki
           image: {{ template "dokuwiki.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
           {{- if .Values.containerSecurityContext.enabled }}
@@ -208,7 +231,7 @@ spec:
         - name: metrics
           image: {{ template "dokuwiki.metrics.image" . }}
           imagePullPolicy: {{ .Values.metrics.image.pullPolicy | quote }}
-          command: [ '/bin/apache_exporter', '--scrape_uri', 'http://status.localhost:80/server-status/?auto']
+          command: [ '/bin/apache_exporter', '--scrape_uri', 'http://status.localhost:8080/server-status/?auto']
           ports:
           - name: metrics
             containerPort: 9117
@@ -259,7 +282,7 @@ spec:
         - name: dokuwiki-data
         {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ template "dokuwiki.fullname" . }}
+            claimName: {{ default (include "common.names.fullname" .) .Values.persistence.existingClaim }}
         {{- else }}
           emptyDir: {}
         {{- end }}

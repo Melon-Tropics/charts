@@ -1,8 +1,8 @@
 # Ghost
 
-[Ghost](https://ghost.org/) is one of the most versatile open source content management systems on the market.
+[Ghost](https://ghost.org/) is an open source publishing platform designed to create blogs, magazines, and news sites. It includes a simple markdown editor with preview, theming, and SEO built-in to simplify editing.
 
-## TL;DR;
+## TL;DR
 
 ```console
 $ helm repo add bitnami https://charts.bitnami.com/bitnami
@@ -20,7 +20,7 @@ Bitnami charts can be used with [Kubeapps](https://kubeapps.com/) for deployment
 ## Prerequisites
 
 - Kubernetes 1.12+
-- Helm 2.12+ or Helm 3.0-beta3+
+- Helm 3.1.0
 - PV provisioner support in the underlying infrastructure
 - ReadWriteMany volumes for deployment scaling
 
@@ -48,104 +48,186 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ## Parameters
 
-The following table lists the configurable parameters of the Ghost chart and their default values.
+### Global parameters
 
-| Parameter                               | Description                                                                                        | Default                                                                                       |
-|-----------------------------------------|----------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
-| `global.imageRegistry`                  | Global Docker image registry                                                                       | `nil`                                                                                         |
-| `global.imagePullSecrets`               | Global Docker registry secret names as an array                                                    | `[]` (does not add image pull secrets to deployed pods)                                       |
-| `global.storageClass`                   | Global storage class for dynamic provisioning                                                      | `nil`                                                                                         |
-| `image.registry`                        | Ghost image registry                                                                               | `docker.io`                                                                                   |
-| `image.repository`                      | Ghost Image name                                                                                   | `bitnami/ghost`                                                                               |
-| `image.tag`                             | Ghost Image tag                                                                                    | `{TAG_NAME}`                                                                                  |
-| `image.pullPolicy`                      | Image pull policy                                                                                  | `IfNotPresent`                                                                                |
-| `image.pullSecrets`                     | Specify docker-registry secret names as an array                                                   | `[]` (does not add image pull secrets to deployed pods)                                       |
-| `nameOverride`                          | String to partially override ghost.fullname template with a string (will prepend the release name) | `nil`                                                                                         |
-| `fullnameOverride`                      | String to fully override ghost.fullname template with a string                                     | `nil`                                                                                         |
-| `volumePermissions.image.registry`      | Init container volume-permissions image registry                                                   | `docker.io`                                                                                   |
-| `volumePermissions.image.repository`    | Init container volume-permissions image name                                                       | `bitnami/minideb`                                                                             |
-| `volumePermissions.image.tag`           | Init container volume-permissions image tag                                                        | `buster`                                                                                      |
-| `volumePermissions.image.pullPolicy`    | Init container volume-permissions image pull policy                                                | `Always`                                                                                      |
-| `ghostHost`                             | Ghost host to create application URLs                                                              | `nil`                                                                                         |
-| `ghostPort`                             | Ghost port to use in application URLs (defaults to `service.port` if `nil`)                        | `nil`                                                                                         |
-| `ghostProtocol`                         | Protocol (http or https) to use in the application URLs                                            | `http`                                                                                        |
-| `ghostPath`                             | Ghost path to create application URLs                                                              | `nil`                                                                                         |
-| `ghostUsername`                         | User of the application                                                                            | `user@example.com`                                                                            |
-| `ghostPassword`                         | Application password                                                                               | Randomly generated                                                                            |
-| `ghostEmail`                            | Admin email                                                                                        | `user@example.com`                                                                            |
-| `ghostBlogTitle`                        | Ghost Blog name                                                                                    | `User's Blog`                                                                                 |
-| `smtpHost`                              | SMTP host                                                                                          | `nil`                                                                                         |
-| `smtpPort`                              | SMTP port                                                                                          | `nil`                                                                                         |
-| `smtpUser`                              | SMTP user                                                                                          | `nil`                                                                                         |
-| `smtpPassword`                          | SMTP password                                                                                      | `nil`                                                                                         |
-| `smtpFromAddress`                       | SMTP from address                                                                                  | `nil`                                                                                         |
-| `smtpService`                           | SMTP service                                                                                       | `nil`                                                                                         |
-| `allowEmptyPassword`                    | Allow DB blank passwords                                                                           | `true`                                                                                        |
-| `existingSecret`                        | Allow to use an existing secret for passwords data                                                 | [ExistingSecret](https://github.com/bitnami/charts/tree/master/bitnami/common#existingsecret) |
-| `livenessProbe.enabled`                 | Would you like a livenessProbe to be enabled                                                       | `true`                                                                                        |
-| `livenessProbe.initialDelaySeconds`     | Delay before liveness probe is initiated                                                           | 120                                                                                           |
-| `livenessProbe.periodSeconds`           | How often to perform the probe                                                                     | 3                                                                                             |
-| `livenessProbe.timeoutSeconds`          | When the probe times out                                                                           | 5                                                                                             |
-| `livenessProbe.failureThreshold`        | Minimum consecutive failures to be considered failed                                               | 6                                                                                             |
-| `livenessProbe.successThreshold`        | Minimum consecutive successes to be considered successful                                          | 1                                                                                             |
-| `readinessProbe.enabled`                | Would you like a readinessProbe to be enabled                                                      | `true`                                                                                        |
-| `readinessProbe.initialDelaySeconds`    | Delay before readiness probe is initiated                                                          | 30                                                                                            |
-| `readinessProbe.periodSeconds`          | How often to perform the probe                                                                     | 3                                                                                             |
-| `readinessProbe.timeoutSeconds`         | When the probe times out                                                                           | 5                                                                                             |
-| `readinessProbe.failureThreshold`       | Minimum consecutive failures to be considered failed                                               | 6                                                                                             |
-| `readinessProbe.successThreshold`       | Minimum consecutive successes to be considered successful                                          | 1                                                                                             |
-| `securityContext.enabled`               | Enable security context                                                                            | `true`                                                                                        |
-| `securityContext.fsGroup`               | Group ID for the container                                                                         | `1001`                                                                                        |
-| `securityContext.runAsUser`             | User ID for the container                                                                          | `1001`                                                                                        |
-| `service.type`                          | Kubernetes Service type                                                                            | `LoadBalancer`                                                                                |
-| `service.port`                          | Service HTTP port                                                                                  | `80`                                                                                          |
-| `service.nodePorts.http`                | Kubernetes http node port                                                                          | `""`                                                                                          |
-| `service.externalTrafficPolicy`         | Enable client source IP preservation                                                               | `Cluster`                                                                                     |
-| `service.loadBalancerIP`                | LoadBalancerIP for the Ghost service                                                               | ``                                                                                            |
-| `service.annotations`                   | Service annotations. Evaluated as a template                                                       | `{}`                                                                                          |
-| `service.extraPorts`                    | Service extra ports, normally used with the `sidecar` value. Evaluated as a template               | `[]`                                                                                          |
-| `ingress.enabled`                       | Enable ingress controller resource                                                                 | `false`                                                                                       |
-| `ingress.annotations`                   | Ingress annotations. Evaluated as a template                                                       | `{}`                                                                                          |
-| `ingress.certManager`                   | Add annotations for cert-manager                                                                   | `false`                                                                                       |
-| `ingress.hosts[0].name`                 | Hostname to your Ghost installation                                                                | `ghost.local`                                                                                 |
-| `ingress.hosts[0].path`                 | Path within the url structure                                                                      | `/`                                                                                           |
-| `ingress.hosts[0].tls`                  | Utilize TLS backend in ingress                                                                     | `false`                                                                                       |
-| `ingress.hosts[0].tlsHosts`             | Array of TLS hosts for ingress record (defaults to `ingress.hosts[0].name` if `nil`)               | `nil`                                                                                         |
-| `ingress.hosts[0].tlsSecret`            | TLS Secret (certificates)                                                                          | `ghost.local-tls-secret`                                                                      |
-| `ingress.secrets[0].name`               | TLS Secret Name                                                                                    | `nil`                                                                                         |
-| `ingress.secrets[0].certificate`        | TLS Secret Certificate                                                                             | `nil`                                                                                         |
-| `ingress.secrets[0].key`                | TLS Secret Key                                                                                     | `nil`                                                                                         |
-| `externalDatabase.host`                 | Host of the external database                                                                      | `localhost`                                                                                   |
-| `externalDatabase.port`                 | Port of the external database                                                                      | `3306`                                                                                        |
-| `externalDatabase.user`                 | Existing username in the external db                                                               | `bn_ghost`                                                                                    |
-| `externalDatabase.password`             | Password for the above username                                                                    | `""`                                                                                          |
-| `externalDatabase.database`             | Name of the existing database                                                                      | `bitnami_ghost`                                                                               |
-| `mariadb.enabled`                       | Whether or not to install MariaDB (disable if using external)                                      | `true`                                                                                        |
-| `mariadb.replication.enabled`           | Whether or not to use MariaDB replication (disable if using external)                              | `false`                                                                                       |
-| `mariadb.rootUser.password`             | MariaDB admin password                                                                             | `nil`                                                                                         |
-| `mariadb.db.name`                       | MariaDB Database name to create                                                                    | `bitnami_ghost`                                                                               |
-| `mariadb.db.user`                       | MariaDB Database user to create                                                                    | `bn_ghost`                                                                                    |
-| `mariadb.db.password`                   | MariaDB Password for user                                                                          | _random 10 character long alphanumeric string_                                                |
-| `mariadb.master.persistence.enabled`    | Whether or not to MariaDB persistence                                                              | `true`                                                                                        |
-| `mariadb.master.persistence.accessMode` | Persistent Volume Access Modes                                                                     | `[ReadWriteOnce]`                                                                             |
-| `mariadb.master.persistence.size`       | Persistent Volume Size                                                                             | `8Gi`                                                                                         |
-| `persistence.enabled`                   | Enable persistence using PVC                                                                       | `true`                                                                                        |
-| `persistence.existingClaim`             | Use an existing PVC                                                                                | `""`                                                                                          |
-| `persistence.storageClass`              | PVC Storage Class for Ghost volume                                                                 | `nil` (uses alpha storage annotation)                                                         |
-| `persistence.accessMode`                | PVC Access Mode for Ghost volume                                                                   | `ReadWriteOnce`                                                                               |
-| `persistence.size`                      | PVC Storage Request for Ghost volume                                                               | `8Gi`                                                                                         |
-| `persistence.path`                      | Path to mount the volume at, to use other images                                                   | `/bitnami`                                                                                    |
-| `resources`                             | CPU/Memory resource requests/limits                                                                | Memory: `512Mi`, CPU: `300m`                                                                  |
-| `nodeSelector`                          | Node selector for pod assignment                                                                   | `{}`                                                                                          |
-| `affinity`                              | Affinity for pod assignment (evaluated as a template)                                              | `{}`                                                                                          |
-| `sidecars`                              | Attach additional containers to all pods (evaluated as a template)                                 | `[]`                                                                                          |
-| `initContainers`                        | Attach additional init containers to all pods (evaluated as a template)                            | `[]`                                                                                          |
-| `extraVolumes`                          | Extra volumes for pods (evaluated as a template). Requires setting `extraVolumeMounts`             | `[]`                                                                                          |
-| `extraVolumeMounts`                     | Extra volume mounts for pods (evaluated as a template). Normally used with `extraVolumes`          | `[]`                                                                                          |
-| `extraEnvVars`                          | Array containing extra env vars to be added to all pods (evaluated as a template)                  | `[]`                                                                                          |
-| `extraEnvVarsConfigMap`                 | ConfigMap containing extra env vars to be added to all pods (evaluated as a template)              | `nil`                                                                                         |
-| `extraEnvVarsSecret`                    | Secret containing extra env vars to be added to all pods (evaluated as a template)                 | `nil`                                                                                         |
-| `podAnnotations`                        | Additional pod annotations to be added to all pods (evaluated as a template)                       | `{}`                                                                                          |
+| Name                      | Description                                     | Value |
+| ------------------------- | ----------------------------------------------- | ----- |
+| `global.imageRegistry`    | Global Docker image registry                    | `nil` |
+| `global.imagePullSecrets` | Global Docker registry secret names as an array | `[]`  |
+| `global.storageClass`     | Global StorageClass for Persistent Volume(s)    | `nil` |
+
+
+### Common parameters
+
+| Name                | Description                                        | Value           |
+| ------------------- | -------------------------------------------------- | --------------- |
+| `kubeVersion`       | Override Kubernetes version                        | `nil`           |
+| `nameOverride`      | String to partially override common.names.fullname | `nil`           |
+| `fullnameOverride`  | String to fully override common.names.fullname     | `nil`           |
+| `commonLabels`      | Labels to add to all deployed objects              | `{}`            |
+| `commonAnnotations` | Annotations to add to all deployed objects         | `{}`            |
+| `clusterDomain`     | Kubernetes cluster domain name                     | `cluster.local` |
+| `extraDeploy`       | Array of extra objects to deploy with the release  | `[]`            |
+
+
+### Ghost Image parameters
+
+| Name                | Description                                      | Value                |
+| ------------------- | ------------------------------------------------ | -------------------- |
+| `image.registry`    | Ghost image registry                             | `docker.io`          |
+| `image.repository`  | Ghost image repository                           | `bitnami/ghost`      |
+| `image.tag`         | Ghost image tag (immutable tags are recommended) | `4.8.3-debian-10-r0` |
+| `image.pullPolicy`  | Ghost image pull policy                          | `IfNotPresent`       |
+| `image.pullSecrets` | Ghost image pull secrets                         | `[]`                 |
+| `image.debug`       | Enable image debug mode                          | `false`              |
+
+
+### Ghost Configuration parameters
+
+| Name                 | Description                                                          | Value              |
+| -------------------- | -------------------------------------------------------------------- | ------------------ |
+| `ghostUsername`      | Ghost user name                                                      | `user`             |
+| `ghostPassword`      | Ghost user password                                                  | `""`               |
+| `existingSecret`     | Name of existing secret containing Ghost credentials                 | `nil`              |
+| `ghostEmail`         | Ghost user email                                                     | `user@example.com` |
+| `ghostBlogTitle`     | Ghost Blog title                                                     | `User's Blog`      |
+| `ghostHost`          | Ghost host to create application URLs                                | `""`               |
+| `ghostEnableHttps`   | Configure Ghost to build application URLs using https                | `false`            |
+| `smtpHost`           | SMTP server host                                                     | `""`               |
+| `smtpPort`           | SMTP server port                                                     | `""`               |
+| `smtpUser`           | SMTP username                                                        | `""`               |
+| `smtpPassword`       | SMTP user password                                                   | `""`               |
+| `smtpService`        | SMTP service                                                         | `""`               |
+| `smtpExistingSecret` | The name of an existing secret with SMTP credentials                 | `nil`              |
+| `allowEmptyPassword` | Allow the container to be started with blank passwords               | `true`             |
+| `ghostSkipInstall`   | Skip performing the initial bootstrapping for Ghost                  | `false`            |
+| `command`            | Override default container command (useful when using custom images) | `[]`               |
+| `args`               | Override default container args (useful when using custom images)    | `[]`               |
+| `extraEnvVars`       | Array with extra environment variables to add to the Ghost container | `[]`               |
+| `extraEnvVarsCM`     | Name of existing ConfigMap containing extra env vars                 | `nil`              |
+| `extraEnvVarsSecret` | Name of existing Secret containing extra env vars                    | `nil`              |
+
+
+### Ghost deployment parameters
+
+| Name                                    | Description                                                                               | Value           |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- | --------------- |
+| `replicaCount`                          | Number of Ghost replicas to deploy                                                        | `1`             |
+| `updateStrategy.type`                   | Ghost deployment strategy type                                                            | `RollingUpdate` |
+| `priorityClassName`                     | Ghost pod priority class name                                                             | `nil`           |
+| `hostAliases`                           | Ghost pod host aliases                                                                    | `[]`            |
+| `extraVolumes`                          | Optionally specify extra list of additional volumes for Ghost pods                        | `[]`            |
+| `extraVolumeMounts`                     | Optionally specify extra list of additional volumeMounts for Ghost container(s)           | `[]`            |
+| `sidecars`                              | Add additional sidecar containers to the Ghost pod                                        | `{}`            |
+| `initContainers`                        | Add additional init containers to the Ghost pods                                          | `{}`            |
+| `lifecycleHooks`                        | Add lifecycle hooks to the Ghost deployment                                               | `{}`            |
+| `podLabels`                             | Extra labels for Ghost pods                                                               | `{}`            |
+| `podAnnotations`                        | Annotations for Ghost pods                                                                | `{}`            |
+| `podAffinityPreset`                     | Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`       | `""`            |
+| `podAntiAffinityPreset`                 | Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`  | `soft`          |
+| `nodeAffinityPreset.type`               | Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard` | `""`            |
+| `nodeAffinityPreset.key`                | Node label key to match. Ignored if `affinity` is set                                     | `""`            |
+| `nodeAffinityPreset.values`             | Node label values to match. Ignored if `affinity` is set                                  | `[]`            |
+| `affinity`                              | Affinity for pod assignment                                                               | `{}`            |
+| `nodeSelector`                          | Node labels for pod assignment                                                            | `{}`            |
+| `tolerations`                           | Tolerations for pod assignment                                                            | `{}`            |
+| `resources.limits`                      | The resources limits for the Ghost container                                              | `{}`            |
+| `resources.requests`                    | The requested resources for the Ghost container                                           | `{}`            |
+| `containerPorts.http`                   | Ghost HTTP container port                                                                 | `2368`          |
+| `containerPorts.https`                  | Ghost HTTPS container port                                                                | `2368`          |
+| `podSecurityContext.enabled`            | Enabled Ghost pods' Security Context                                                      | `true`          |
+| `podSecurityContext.fsGroup`            | Set Ghost pod's Security Context fsGroup                                                  | `1001`          |
+| `containerSecurityContext.enabled`      | Enabled Ghost containers' Security Context                                                | `true`          |
+| `containerSecurityContext.runAsUser`    | Set Ghost container's Security Context runAsUser                                          | `1001`          |
+| `containerSecurityContext.runAsNonRoot` | Set Ghost container's Security Context runAsNonRoot                                       | `true`          |
+| `livenessProbe.enabled`                 | Enable livenessProbe                                                                      | `true`          |
+| `livenessProbe.initialDelaySeconds`     | Initial delay seconds for livenessProbe                                                   | `120`           |
+| `livenessProbe.periodSeconds`           | Period seconds for livenessProbe                                                          | `10`            |
+| `livenessProbe.timeoutSeconds`          | Timeout seconds for livenessProbe                                                         | `5`             |
+| `livenessProbe.failureThreshold`        | Failure threshold for livenessProbe                                                       | `6`             |
+| `livenessProbe.successThreshold`        | Success threshold for livenessProbe                                                       | `1`             |
+| `readinessProbe.enabled`                | Enable readinessProbe                                                                     | `true`          |
+| `readinessProbe.initialDelaySeconds`    | Initial delay seconds for readinessProbe                                                  | `30`            |
+| `readinessProbe.periodSeconds`          | Period seconds for readinessProbe                                                         | `5`             |
+| `readinessProbe.timeoutSeconds`         | Timeout seconds for readinessProbe                                                        | `3`             |
+| `readinessProbe.failureThreshold`       | Failure threshold for readinessProbe                                                      | `6`             |
+| `readinessProbe.successThreshold`       | Success threshold for readinessProbe                                                      | `1`             |
+| `customLivenessProbe`                   | Custom livenessProbe that overrides the default one                                       | `{}`            |
+| `customReadinessProbe`                  | Custom readinessProbe that overrides the default one                                      | `{}`            |
+
+
+### Traffic Exposure Parameters
+
+| Name                               | Description                                                                                           | Value                    |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------ |
+| `service.type`                     | Ghost service type                                                                                    | `LoadBalancer`           |
+| `service.port`                     | Ghost service HTTP port                                                                               | `80`                     |
+| `service.httpsPort`                | Ghost service HTTPS port                                                                              | `443`                    |
+| `service.nodePorts.http`           | Node port for HTTP                                                                                    | `nil`                    |
+| `service.nodePorts.https`          | Node port for HTTPS                                                                                   | `nil`                    |
+| `service.clusterIP`                | Ghost service Cluster IP                                                                              | `nil`                    |
+| `service.loadBalancerIP`           | Ghost service Load Balancer IP                                                                        | `nil`                    |
+| `service.loadBalancerSourceRanges` | Ghost service Load Balancer sources                                                                   | `[]`                     |
+| `service.externalTrafficPolicy`    | Ghost service external traffic policy                                                                 | `Cluster`                |
+| `service.annotations`              | Additional custom annotations for Ghost service                                                       | `{}`                     |
+| `service.extraPorts`               | Extra port to expose on Ghost service                                                                 | `[]`                     |
+| `ingress.enabled`                  | Enable ingress record generation for Ghost                                                            | `false`                  |
+| `ingress.pathType`                 | Ingress path type                                                                                     | `ImplementationSpecific` |
+| `ingress.apiVersion`               | Force Ingress API version (automatically detected if not set)                                         | `nil`                    |
+| `ingress.hostname`                 | Default host for the ingress record                                                                   | `ghost.local`            |
+| `ingress.path`                     | Default path for the ingress record                                                                   | `ImplementationSpecific` |
+| `ingress.annotations`              | Additional custom annotations for the ingress record                                                  | `{}`                     |
+| `ingress.tls`                      | Enable TLS configuration for the host defined at `ingress.hostname` parameter                         | `false`                  |
+| `ingress.certManager`              | Add the corresponding annotations for cert-manager integration                                        | `false`                  |
+| `ingress.selfSigned`               | Create a TLS secret for this ingress record using self-signed certificates generated by Helm          | `false`                  |
+| `ingress.extraHosts`               | An array with additional hostname(s) to be covered with the ingress record                            | `[]`                     |
+| `ingress.extraPaths`               | An array with additional arbitrary paths that may need to be added to the ingress under the main host | `[]`                     |
+| `ingress.extraTls`                 | TLS configuration for additional hostname(s) to be covered with this ingress record                   | `[]`                     |
+| `ingress.secrets`                  | Custom TLS certificates as secrets                                                                    | `[]`                     |
+
+
+### Persistence Parameters
+
+| Name                                          | Description                                                                                     | Value                   |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------- |
+| `persistence.enabled`                         | Enable persistence using Persistent Volume Claims                                               | `true`                  |
+| `persistence.storageClass`                    | Persistent Volume storage class                                                                 | `nil`                   |
+| `persistence.annotations`                     | Additional custom annotations for the PVC                                                       | `{}`                    |
+| `persistence.accessModes`                     | Persistent Volume access modes                                                                  | `[]`                    |
+| `persistence.size`                            | Persistent Volume size                                                                          | `8Gi`                   |
+| `persistence.existingClaim`                   | The name of an existing PVC to use for persistence                                              | `nil`                   |
+| `volumePermissions.enabled`                   | Enable init container that changes the owner/group of the PV mount point to `runAsUser:fsGroup` | `false`                 |
+| `volumePermissions.image.registry`            | Bitnami Shell image registry                                                                    | `docker.io`             |
+| `volumePermissions.image.repository`          | Bitnami Shell image repository                                                                  | `bitnami/bitnami-shell` |
+| `volumePermissions.image.tag`                 | Bitnami Shell image tag (immutable tags are recommended)                                        | `10-debian-10-r119`     |
+| `volumePermissions.image.pullPolicy`          | Bitnami Shell image pull policy                                                                 | `IfNotPresent`          |
+| `volumePermissions.image.pullSecrets`         | Bitnami Shell image pull secrets                                                                | `[]`                    |
+| `volumePermissions.resources.limits`          | The resources limits for the init container                                                     | `{}`                    |
+| `volumePermissions.resources.requests`        | The requested resources for the init container                                                  | `{}`                    |
+| `volumePermissions.securityContext.runAsUser` | Set init container's Security Context runAsUser                                                 | `0`                     |
+
+
+### Database Parameters
+
+| Name                                       | Description                                                               | Value           |
+| ------------------------------------------ | ------------------------------------------------------------------------- | --------------- |
+| `mariadb.enabled`                          | Deploy a MariaDB server to satisfy the applications database requirements | `true`          |
+| `mariadb.architecture`                     | MariaDB architecture. Allowed values: `standalone` or `replication`       | `standalone`    |
+| `mariadb.auth.rootPassword`                | MariaDB root password                                                     | `""`            |
+| `mariadb.auth.database`                    | MariaDB custom database                                                   | `bitnami_ghost` |
+| `mariadb.auth.username`                    | MariaDB custom user name                                                  | `bn_ghost`      |
+| `mariadb.auth.password`                    | MariaDB custom user password                                              | `""`            |
+| `mariadb.primary.persistence.enabled`      | Enable persistence on MariaDB using PVC(s)                                | `true`          |
+| `mariadb.primary.persistence.storageClass` | Persistent Volume storage class                                           | `nil`           |
+| `mariadb.primary.persistence.accessModes`  | Persistent Volume access modes                                            | `[]`            |
+| `mariadb.primary.persistence.size`         | Persistent Volume size                                                    | `8Gi`           |
+| `externalDatabase.host`                    | External Database server host                                             | `localhost`     |
+| `externalDatabase.port`                    | External Database server port                                             | `3306`          |
+| `externalDatabase.user`                    | External Database username                                                | `bn_ghost`      |
+| `externalDatabase.password`                | External Database user password                                           | `""`            |
+| `externalDatabase.database`                | External Database database name                                           | `bitnami_ghost` |
+| `externalDatabase.existingSecret`          | The name of an existing secret with database credentials                  | `nil`           |
+
 
 The above parameters map to the env variables defined in [bitnami/ghost](http://github.com/bitnami/bitnami-docker-ghost). For more information please refer to the [bitnami/ghost](http://github.com/bitnami/bitnami-docker-ghost) image documentation.
 
@@ -161,17 +243,19 @@ The above parameters map to the env variables defined in [bitnami/ghost](http://
 > $ gcloud compute addresses create ghost-public-ip
 > ```
 >
-> The reserved IP address can be assigned to the Ghost service by specifying it as the value of the `ghostLoadBalancerIP` parameter while installing the chart.
+> The reserved IP address can be assigned to the Ghost service by specifying it as the value of the `service.loadBalancerIP` parameter while installing the chart.
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```console
 $ helm install my-release \
-  --set ghostUsername=admin,ghostPassword=password,mariadb.mariadbRootPassword=secretpassword \
+  --set ghostUsername=admin,ghostPassword=password,mariadb.auth.rootPassword=secretpassword \
     bitnami/ghost
 ```
 
 The above command sets the Ghost administrator account username and password to `admin` and `password` respectively. Additionally, it sets the MariaDB `root` user password to `secretpassword`.
+
+> NOTE: Once this chart is deployed, it is not possible to change the application's access credentials, such as usernames or passwords, using Helm. To change these application credentials after deployment, delete any persistent volumes (PVs) used by the chart and re-deploy it, or use the application's built-in administrative tools if available.
 
 Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
 
@@ -189,9 +273,9 @@ It is strongly recommended to use immutable tags in a production environment. Th
 
 Bitnami will release a new chart updating its containers if a new version of the main container, significant changes, or critical vulnerabilities exist.
 
-### Using an existing database
+### External database support
 
-Sometimes you may want to have Ghost connect to an external database rather than installing one inside your cluster, e.g. to use a managed database service, or use run a single database server for all your applications. To do this, the chart allows you to specify credentials for an external database under the [`externalDatabase` parameter](#parameters). You should also disable the MariaDB installation with the `mariadb.enabled` option. For example using the following parameters:
+You may want to have Ghost connect to an external database rather than installing one inside your cluster. Typical reasons for this are to use a managed database service, or to share a common database server for all your applications. To achieve this, the chart allows you to specify credentials for an external database with the [`externalDatabase` parameter](#database-parameters). You should also disable the MariaDB installation with the `mariadb.enabled` option. Here is an example:
 
 ```console
 mariadb.enabled=false
@@ -199,7 +283,48 @@ externalDatabase.host=myexternalhost
 externalDatabase.user=myuser
 externalDatabase.password=mypassword
 externalDatabase.database=mydatabase
+externalDatabase.port=3306
 ```
+
+Refer to the [documentation on using an external database with Ghost](https://docs.bitnami.com/kubernetes/apps/ghost/configuration/use-external-database/) for more information.
+
+### Configure Ingress
+
+This chart provides support for Ingress resources. If you have an ingress controller installed on your cluster, such as [nginx-ingress-controller](https://github.com/bitnami/charts/tree/master/bitnami/nginx-ingress-controller) or [contour](https://github.com/bitnami/charts/tree/master/bitnami/contour) you can utilize the ingress controller to serve your application.
+
+To enable Ingress integration, set `ingress.enabled` to `true`. The `ingress.hostname` property can be used to set the host name. The `ingress.tls` parameter can be used to add the TLS configuration for this host. It is also possible to have more than one host, with a separate TLS configuration for each host. [Learn more about configuring and using Ingress](https://docs.bitnami.com/kubernetes/apps/ghost/configuration/configure-ingress/).
+
+### Configure TLS Secrets for use with Ingress
+
+The chart also facilitates the creation of TLS secrets for use with the Ingress controller, with different options for certificate management. [Learn more about TLS secrets](https://docs.bitnami.com/kubernetes/apps/ghost/administration/enable-tls-ingress/).
+
+### Configure extra environment variables
+
+To add extra environment variables (useful for advanced operations like custom init scripts), use the `extraEnvVars` property.
+
+```yaml
+extraEnvVars:
+  - name: LOG_LEVEL
+    value: DEBUG
+```
+
+Alternatively, use a ConfigMap or a Secret with the environment variables. To do so, use the `extraEnvVarsCM` or the `extraEnvVarsSecret` values.
+
+### Configure Sidecars and Init Containers
+
+If additional containers are needed in the same pod as Ghost (such as additional metrics or logging exporters), they can be defined using the `sidecars` parameter. Similarly, you can add extra init containers using the `initContainers` parameter.
+
+[Learn more about configuring and using sidecar and init containers](https://docs.bitnami.com/kubernetes/apps/ghost/configuration/configure-sidecar-init-containers/).
+
+### Deploy extra resources
+
+There are cases where you may want to deploy extra objects, such a ConfigMap containing your app's configuration or some extra deployment with a micro service used by your app. For covering this case, the chart allows adding the full specification of other objects using the `extraDeploy` parameter.
+
+### Set Pod affinity
+
+This chart allows you to set custom Pod affinity using the `affinity` parameter(s). Find more information about Pod affinity in the [Kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity).
+
+As an alternative, you can use the preset configurations for pod affinity, pod anti-affinity, and node affinity available at the [bitnami/common](https://github.com/bitnami/charts/tree/master/bitnami/common#affinities) chart. To do so, set the `podAffinityPreset`, `podAntiAffinityPreset`, or `nodeAffinityPreset` parameters.
 
 ## Persistence
 
@@ -208,13 +333,107 @@ The [Bitnami Ghost](https://github.com/bitnami/bitnami-docker-ghost) image store
 Persistent Volume Claims are used to keep the data across deployments. This is known to work in GCE, AWS, and minikube.
 See the [Parameters](#parameters) section to configure the PVC or to disable persistence.
 
+## Troubleshooting
+
+Find more information about how to deal with common errors related to Bitnami’s Helm charts in [this troubleshooting guide](https://docs.bitnami.com/general/how-to/troubleshoot-helm-chart-issues).
+
 ## Upgrading
+
+### To 14.0.0
+
+Due to recent changes in the container image (see [Notable changes](https://github.com/bitnami/bitnami-docker-ghost#notable-changes)), the major version of the chart has been bumped preemptively.
+
+Compatibility is not guaranteed due to the amount of involved changes, however no breaking changes are expected.
+
+### To 12.0.0
+
+This version standardizes the way of defining Ingress rules. When configuring a single hostname for the Ingress rule, set the `ingress.hostname` value. When defining more than one, set the `ingress.extraHosts` array. Apart from this case, no issues are expected to appear when upgrading.
+
+### To 11.0.0
+
+In this major there were two main changes introduced:
+
+1. Adaptation to Helm v2 EOL
+2. Updated MariaDB dependency version
+
+Please read the update notes carefully.
+
+**1. Adaptation to Helm v2 EOL**
+
+[On November 13, 2020, Helm v2 support was formally finished](https://github.com/helm/charts#status-of-the-project), this major version is the result of the required changes applied to the Helm Chart to be able to incorporate the different features added in Helm v3 and to be consistent with the Helm project itself regarding the Helm v2 EOL.
+
+**What changes were introduced in this major version?**
+
+- Previous versions of this Helm Chart use `apiVersion: v1` (installable by both Helm 2 and 3), this Helm Chart was updated to `apiVersion: v2` (installable by Helm 3 only). [Here](https://helm.sh/docs/topics/charts/#the-apiversion-field) you can find more information about the `apiVersion` field.
+- Move dependency information from the *requirements.yaml* to the *Chart.yaml*
+- After running `helm dependency update`, a *Chart.lock* file is generated containing the same structure used in the previous *requirements.lock*
+- The different fields present in the *Chart.yaml* file has been ordered alphabetically in a homogeneous way for all the Bitnami Helm Charts
+
+**Considerations when upgrading to this version**
+
+- If you want to upgrade to this version from a previous one installed with Helm v3, you shouldn't face any issues
+- If you want to upgrade to this version using Helm v2, this scenario is not supported as this version doesn't support Helm v2 anymore
+- If you installed the previous version with Helm v2 and wants to upgrade to this version with Helm v3, please refer to the [official Helm documentation](https://helm.sh/docs/topics/v2_v3_migration/#migration-use-cases) about migrating from Helm v2 to v3
+
+**Useful links**
+
+- https://docs.bitnami.com/tutorials/resolve-helm2-helm3-post-migration-issues/
+- https://helm.sh/docs/topics/v2_v3_migration/
+- https://helm.sh/blog/migrate-from-helm-v2-to-helm-v3/
+
+**2. Updated MariaDB dependency version**
+
+In this major the MariaDB dependency version was also bumped to a new major version that introduces several incompatilibites. Therefore, backwards compatibility is not guaranteed unless an external database is used. Check [MariaDB Upgrading Notes](https://github.com/bitnami/charts/tree/master/bitnami/mariadb#to-800) for more information.
+
+To upgrade to `11.0.0`, it should be done reusing the PVCs used to hold both the MariaDB and Ghost data on your previous release. To do so, follow the instructions below (the following example assumes that the release name is `ghost`):
+
+> NOTE: Please, create a backup of your database before running any of those actions. The steps below would be only valid if your application (e.g. any plugins or custom code) is compatible with MariaDB 10.5.x
+
+Obtain the credentials and the name of the PVC used to hold the MariaDB data on your current release:
+
+```console
+$ export GHOST_HOST=$(kubectl get svc --namespace default ghost --template "{{ range (index .status.loadBalancer.ingress 0) }}{{ . }}{{ end }}")
+$ export GHOST_PASSWORD=$(kubectl get secret --namespace default ghost -o jsonpath="{.data.ghost-password}" | base64 --decode)
+$ export MARIADB_ROOT_PASSWORD=$(kubectl get secret --namespace default ghost-mariadb -o jsonpath="{.data.mariadb-root-password}" | base64 --decode)
+$ export MARIADB_PASSWORD=$(kubectl get secret --namespace default ghost-mariadb -o jsonpath="{.data.mariadb-password}" | base64 --decode)
+$ export MARIADB_PVC=$(kubectl get pvc -l app=mariadb,component=master,release=ghost -o jsonpath="{.items[0].metadata.name}")
+```
+
+Delete the Ghost deployment and delete the MariaDB statefulset. Notice the option `--cascade=false` in the latter.
+
+  ```console
+  $ kubectl delete deployments.apps ghost
+
+  $ kubectl delete statefulsets.apps ghost-mariadb --cascade=false
+  ```
+
+Upgrade you release to 11.0.0 reusing the existing PVC, and enabling back MariaDB:
+
+```console
+$ helm upgrade ghost bitnami/ghost --set mariadb.primary.persistence.existingClaim=$MARIADB_PVC --set mariadb.auth.rootPassword=$MARIADB_ROOT_PASSWORD --set mariadb.auth.password=$MARIADB_PASSWORD --set ghostPassword=$GHOST_PASSWORD --set ghostHost=$GHOST_HOST
+```
+
+You will need to kill the existing MariaDB pod now as the new statefulset is going to create a new one:
+
+```console
+$ kubectl delete pod ghost-mariadb-0
+```
+
+You should see the lines below in MariaDB container logs:
+
+```console
+$ kubectl logs $(kubectl get pods -l app.kubernetes.io/instance=ghost,app.kubernetes.io/name=mariadb,app.kubernetes.io/component=primary -o jsonpath="{.items[0].metadata.name}")
+...
+mariadb 12:13:24.98 INFO  ==> Using persisted data
+mariadb 12:13:25.01 INFO  ==> Running mysql_upgrade
+...
+```
 
 ### To 10.0.0
 
 This version introduces `bitnami/common`, a [library chart](https://helm.sh/docs/topics/library_charts/#helm) as a dependency. More documentation about this new utility could be found [here](https://github.com/bitnami/charts/tree/master/bitnami/common#bitnami-common-library-chart). Please, make sure that you have updated the chart dependencies before executing any upgrade.
 
-Also, `allowEmptyPassword` has changed its value type from string to boolean, if you were using it please make sure that you are pasing the proper value.
+Also, `allowEmptyPassword` has changed its value type from string to boolean, if you were using it please make sure that you are passing the proper value.
 
 ```console
 # before

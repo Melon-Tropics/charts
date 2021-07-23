@@ -1,9 +1,60 @@
 {{/* vim: set filetype=mustache: */}}
+
 {{/*
-Expand the name of the chart.
+Return the proper Cassandra image name
 */}}
-{{- define "cassandra.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- define "cassandra.image" -}}
+{{ include "common.images.image" (dict "imageRoot" .Values.image "global" .Values.global) }}
+{{- end -}}
+
+{{/*
+Return the proper metrics image name
+*/}}
+{{- define "cassandra.metrics.image" -}}
+{{ include "common.images.image" (dict "imageRoot" .Values.metrics.image "global" .Values.global) }}
+{{- end -}}
+
+{{/*
+Return the proper image name (for the init container volume-permissions image)
+*/}}
+{{- define "cassandra.volumePermissions.image" -}}
+{{ include "common.images.image" (dict "imageRoot" .Values.volumePermissions.image "global" .Values.global) }}
+{{- end -}}
+
+{{/*
+Return the proper Docker Image Registry Secret Names
+*/}}
+{{- define "cassandra.imagePullSecrets" -}}
+{{ include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.metrics.image .Values.volumePermissions.image) "global" .Values.global) }}
+{{- end -}}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "cassandra.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+    {{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
+{{- else -}}
+    {{ default "default" .Values.serviceAccount.name }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the list of Cassandra seed nodes
+*/}}
+{{- define "cassandra.seeds" -}}
+{{- $seeds := list }}
+{{- $fullname := include "common.names.fullname" .  }}
+{{- $releaseNamespace := .Release.Namespace }}
+{{- $clusterDomain := .Values.clusterDomain }}
+{{- $seedCount := .Values.cluster.seedCount | int }}
+{{- range $e, $i := until $seedCount }}
+{{- $seeds = append $seeds (printf "%s-%d.%s-headless.%s.svc.%s" $fullname $i $fullname $releaseNamespace $clusterDomain) }}
+{{- end }}
+{{- range .Values.cluster.extraSeeds }}
+{{- $seeds = append $seeds . }}
+{{- end }}
+{{- join "," $seeds }}
 {{- end -}}
 
 {{/*
@@ -18,203 +69,125 @@ Return the appropriate apiVersion for networkpolicy.
 {{- end -}}
 
 {{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-If release name contains chart name it will be used as a full name.
+Compile all warnings into a single message, and call fail.
 */}}
-{{- define "cassandra.fullname" -}}
-{{- if .Values.fullnameOverride -}}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- $name := default .Chart.Name .Values.nameOverride -}}
-{{- if contains $name .Release.Name -}}
-{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
+{{- define "cassandra.validateValues" -}}
+{{- $messages := list -}}
+{{- $messages := append $messages (include "cassandra.validateValues.seedCount" .) -}}
+{{- $messages := append $messages (include "cassandra.validateValues.tls" .) -}}
+{{- $messages := without $messages "" -}}
+{{- $message := join "\n" $messages -}}
+
+{{- if $message -}}
+{{-   printf "\nVALUES VALIDATION:\n%s" $message | fail -}}
 {{- end -}}
 {{- end -}}
 
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "cassandra.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
+{{/* Validate values of Cassandra - Number of seed nodes */}}
+{{- define "cassandra.validateValues.seedCount" -}}
+{{- $replicaCount := int .Values.replicaCount }}
+{{- $seedCount := int .Values.cluster.seedCount }}
+{{- if or (lt $seedCount 1) (gt $seedCount $replicaCount) }}
+cassandra: cluster.seedCount
 
-{{/*
-Common labels
-*/}}
-{{- define "cassandra.labels" -}}
-app: {{ include "cassandra.name" . }}
-chart: {{ include "cassandra.chart" . }}
-release: {{ .Release.Name }}
-heritage: {{ .Release.Service }}
-{{- end -}}
-
-{{/*
-Labels to use on deploy.spec.selector.matchLabels and svc.spec.selector
-*/}}
-{{- define "cassandra.matchLabels" -}}
-app: {{ include "cassandra.name" . }}
-release: {{ .Release.Name }}
-{{- end -}}
-
-
-{{/*
-Return the proper Cassandra image name
-*/}}
-{{- define "cassandra.image" -}}
-{{- $registryName := .Values.image.registry -}}
-{{- $repositoryName := .Values.image.repository -}}
-{{- $tag := .Values.image.tag | toString -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 doesn't support it, so we need to implement this if-else logic.
-Also, we can't use a single if because lazy evaluation is not an option
-*/}}
-{{- if .Values.global }}
-    {{- if .Values.global.imageRegistry }}
-        {{- printf "%s/%s:%s" .Values.global.imageRegistry $repositoryName $tag -}}
-    {{- else -}}
-        {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-    {{- end -}}
-{{- else -}}
-    {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
+    Number of seed nodes must be greater or equal than 1 and less or
+    equal to `replicaCount`.
 {{- end -}}
 {{- end -}}
 
-{{/*
-Return the proper metrics image name
-*/}}
-{{- define "cassandra.metrics.image" -}}
-{{- $registryName := .Values.metrics.image.registry -}}
-{{- $repositoryName := .Values.metrics.image.repository -}}
-{{- $tag := .Values.metrics.image.tag | toString -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 doesn't support it, so we need to implement this if-else logic.
-Also, we can't use a single if because lazy evaluation is not an option
-*/}}
-{{- if .Values.global }}
-    {{- if .Values.global.imageRegistry }}
-        {{- printf "%s/%s:%s" .Values.global.imageRegistry $repositoryName $tag -}}
-    {{- else -}}
-        {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-    {{- end -}}
-{{- else -}}
-    {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
+{{/* Validate values of Cassandra - Tls enabled */}}
+{{- define "cassandra.validateValues.tls" -}}
+{{- if and (include "cassandra.tlsEncryption" .) (not .Values.tls.autoGenerated) (not .Values.tls.existingSecret) (not .Values.tls.certificatesSecret) }}
+cassandra: tls.enabled
+    In order to enable TLS, you also need to provide
+    an existing secret containing the Keystore and Truststore or
+    enable auto-generated certificates.
 {{- end -}}
 {{- end -}}
 
+{{/* vim: set filetype=mustache: */}}
 {{/*
-Return the proper Docker Image Registry Secret Names
+Return  the proper Commit Storage Class
+{{ include "cassandra.commitstorage.class" ( dict "persistence" .Values.path.to.the.persistence "global" $) }}
 */}}
-{{- define "cassandra.imagePullSecrets" -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 does not support it, so we need to implement this if-else logic.
-Also, we can not use a single if because lazy evaluation is not an option
-*/}}
-{{- if .Values.global }}
-{{- if .Values.global.imagePullSecrets }}
-imagePullSecrets:
-{{- range .Values.global.imagePullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- else if or .Values.image.pullSecrets .Values.metrics.image.pullSecrets .Values.volumePermissions.image.pullSecrets }}
-imagePullSecrets:
-{{- range .Values.image.pullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- range .Values.metrics.image.pullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- range .Values.volumePermissions.image.pullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- end -}}
-{{- else if or .Values.image.pullSecrets .Values.metrics.image.pullSecrets .Values.volumePermissions.image.pullSecrets }}
-imagePullSecrets:
-{{- range .Values.image.pullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- range .Values.metrics.image.pullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- range .Values.volumePermissions.image.pullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Return the proper image name (for the init container volume-permissions image)
-*/}}
-{{- define "cassandra.volumePermissions.image" -}}
-{{- $registryName := .Values.volumePermissions.image.registry -}}
-{{- $repositoryName := .Values.volumePermissions.image.repository -}}
-{{- $tag := .Values.volumePermissions.image.tag | toString -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 doesn't support it, so we need to implement this if-else logic.
-Also, we can't use a single if because lazy evaluation is not an option
-*/}}
-{{- if .Values.global }}
-    {{- if .Values.global.imageRegistry }}
-        {{- printf "%s/%s:%s" .Values.global.imageRegistry $repositoryName $tag -}}
-    {{- else -}}
-        {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-    {{- end -}}
-{{- else -}}
-    {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Return the proper Storage Class
-*/}}
-{{- define "cassandra.storageClass" -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 does not support it, so we need to implement this if-else logic.
-*/}}
-{{- if .Values.global -}}
-    {{- if .Values.global.storageClass -}}
-        {{- if (eq "-" .Values.global.storageClass) -}}
-            {{- printf "storageClassName: \"\"" -}}
-        {{- else }}
-            {{- printf "storageClassName: %s" .Values.global.storageClass -}}
-        {{- end -}}
-    {{- else -}}
-        {{- if .Values.persistence.storageClass -}}
-              {{- if (eq "-" .Values.persistence.storageClass) -}}
-                  {{- printf "storageClassName: \"\"" -}}
-              {{- else }}
-                  {{- printf "storageClassName: %s" .Values.persistence.storageClass -}}
-              {{- end -}}
-        {{- end -}}
-    {{- end -}}
-{{- else -}}
-    {{- if .Values.persistence.storageClass -}}
-        {{- if (eq "-" .Values.persistence.storageClass) -}}
-            {{- printf "storageClassName: \"\"" -}}
-        {{- else }}
-            {{- printf "storageClassName: %s" .Values.persistence.storageClass -}}
-        {{- end -}}
+{{- define "cassandra.commitstorage.class" -}}
+{{- $storageClass := .persistence.commitStorageClass -}}
+{{- if .global -}}
+    {{- if .global.storageClass -}}
+        {{- $storageClass = .global.commitStorageClass -}}
     {{- end -}}
 {{- end -}}
+
+{{- if $storageClass -}}
+  {{- if (eq "-" $storageClass) -}}
+      {{- printf "storageClassName: \"\"" -}}
+  {{- else }}
+      {{- printf "storageClassName: %s" $storageClass -}}
+  {{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
-Renders a value that contains template.
-Usage:
-{{ include "cassandra.tplValue" ( dict "value" .Values.path.to.the.Value "context" $) }}
+Return true if encryption via TLS for client connections should be configured
 */}}
-{{- define "cassandra.tplValue" -}}
-    {{- if typeIs "string" .value }}
-        {{- tpl .value .context }}
-    {{- else }}
-        {{- tpl (.value | toYaml) .context }}
-    {{- end }}
+{{- define "cassandra.client.tlsEncryption" -}}
+{{- if (or .Values.tls.clientEncryption .Values.cluster.clientEncryption) -}}
+    {{- true -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Return true if encryption via TLS for internode communication connections should be configured
+*/}}
+{{- define "cassandra.internode.tlsEncryption" -}}
+{{- if (ne .Values.tls.internodeEncryption "none") -}}
+    {{- printf "%s" .Values.tls.internodeEncryption -}}
+{{- else if (ne .Values.cluster.internodeEncryption "none") -}}
+    {{- printf "%s" .Values.cluster.internodeEncryption -}}
+{{- else -}}
+    {{- printf "none" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return true if encryption via TLS should be configured
+*/}}
+{{- define "cassandra.tlsEncryption" -}}
+{{- if or (include "cassandra.client.tlsEncryption" . ) ( ne "none" (include "cassandra.internode.tlsEncryption" . )) -}}
+    {{- true -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the Cassandra TLS credentials secret
+*/}}
+{{- define "cassandra.tlsSecretName" -}}
+{{- $secretName := coalesce .Values.tls.existingSecret .Values.tlsEncryptionSecretName -}}
+{{- if $secretName -}}
+    {{- printf "%s" (tpl $secretName $) -}}
+{{- else -}}
+    {{- printf "%s-crt" (include "common.names.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return true if a TLS credentials secret object should be created
+*/}}
+{{- define "cassandra.createTlsSecret" -}}
+{{- if and (include "cassandra.tlsEncryption" .) .Values.tls.autoGenerated (not .Values.tls.existingSecret) (not .Values.tlsEncryptionSecretName) }}
+    {{- true -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return true if a TLS credentials secret object should be created
+*/}}
+{{- define "cassandra.tlsPasswordsSecret" -}}
+{{- $secretName := coalesce .Values.tls.passwordsSecret .Values.tlsEncryptionSecretName -}}
+{{- if $secretName -}}
+    {{- printf "%s" (tpl $secretName $) -}}
+{{- else -}}
+    {{- printf "%s-tls-pass" (include "common.names.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+

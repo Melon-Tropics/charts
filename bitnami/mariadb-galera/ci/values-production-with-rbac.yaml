@@ -1,6 +1,8 @@
 # Test values file for generating all of the yaml and check that
 # the rendering is correct
 
+usePasswordFiles: true
+
 metrics:
   enabled: true
 
@@ -9,7 +11,7 @@ podDisruptionBudget:
 
 extraEnvVars: |-
   - name: TEST
-    value: {{ include "mariadb-galera.fullname" . | quote }}
+    value: {{ include "common.names.fullname" . | quote }}
 
 extraEnvVarsSecret: example-secret
 extraEnvVarsCM: example-cm

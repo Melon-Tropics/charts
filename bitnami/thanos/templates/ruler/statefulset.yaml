@@ -1,50 +1,67 @@
+{{- $query := (include "thanos.query.values" . | fromYaml) -}}
 {{- if .Values.ruler.enabled }}
-apiVersion: apps/v1
+apiVersion: {{ include "common.capabilities.statefulset.apiVersion" . }}
 kind: StatefulSet
 metadata:
-  name: {{ include "thanos.fullname" . }}-ruler
-  labels: {{- include "thanos.labels" . | nindent 4 }}
+  name: {{ include "common.names.fullname" . }}-ruler
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
     app.kubernetes.io/component: ruler
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
 spec:
   replicas: {{ .Values.ruler.replicaCount }}
   podManagementPolicy: {{ .Values.ruler.podManagementPolicy }}
-  serviceName: {{ include "thanos.fullname" . }}-ruler-headless
+  serviceName: {{ include "common.names.fullname" . }}-ruler-headless
   updateStrategy:
     type: {{ .Values.ruler.updateStrategyType }}
     {{- if (eq "OnDelete" .Values.ruler.updateStrategyType) }}
     rollingUpdate: null
     {{- end }}
   selector:
-    matchLabels: {{- include "thanos.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
       app.kubernetes.io/component: ruler
   template:
     metadata:
-      labels: {{- include "thanos.labels" . | nindent 8 }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
         app.kubernetes.io/component: ruler
+        {{- if .Values.commonLabels }}
+        {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 8 }}
+        {{- end }}
+        {{- if .Values.ruler.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.ruler.podLabels "context" $) | nindent 8 }}
+        {{- end }}
       annotations:
         checksum/ojbstore-configuration: {{ include (print $.Template.BasePath "/objstore-secret.yaml") . | sha256sum }}
         checksum/ruler-configuration: {{ include (print $.Template.BasePath "/ruler/configmap.yaml") . | sha256sum }}
         {{- if .Values.ruler.podAnnotations }}
-        {{- include "thanos.tplValue" (dict "value" .Values.ruler.podAnnotations "context" $) | nindent 8 }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.ruler.podAnnotations "context" $) | nindent 8 }}
         {{- end }}
     spec:
-{{- include "thanos.imagePullSecrets" . | nindent 6 }}
+      {{- include "thanos.imagePullSecrets" . | nindent 6 }}
       serviceAccount: {{ include "thanos.serviceaccount.name" (dict "component" "ruler" "context" $) }}
+      {{- if .Values.ruler.hostAliases }}
+      hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.ruler.hostAliases "context" $) | nindent 8 }}
+      {{- end }}
       {{- if .Values.ruler.affinity }}
-      affinity: {{- include "thanos.tplValue" (dict "value" .Values.ruler.affinity "context" $) | nindent 8 }}
+      affinity: {{- include "common.tplvalues.render" (dict "value" .Values.ruler.affinity "context" $) | nindent 8 }}
+      {{- else }}
+      affinity:
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.ruler.podAffinityPreset "component" "ruler" "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.ruler.podAntiAffinityPreset "component" "ruler" "context" $) | nindent 10 }}
+        nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.ruler.nodeAffinityPreset.type "key" .Values.ruler.nodeAffinityPreset.key "values" .Values.ruler.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.ruler.nodeSelector }}
-      nodeSelector: {{- include "thanos.tplValue" (dict "value" .Values.ruler.nodeSelector "context" $) | nindent 8 }}
+      nodeSelector: {{- include "common.tplvalues.render" (dict "value" .Values.ruler.nodeSelector "context" $) | nindent 8 }}
       {{- end }}
       {{- if .Values.ruler.tolerations }}
-      tolerations: {{- include "thanos.tplValue" (dict "value" .Values.ruler.tolerations "context" $) | nindent 8 }}
+      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.ruler.tolerations "context" $) | nindent 8 }}
       {{- end }}
       {{- if .Values.ruler.priorityClassName }}
       priorityClassName: {{ .Values.ruler.priorityClassName | quote }}
       {{- end }}
-      {{- if .Values.ruler.securityContext.enabled }}
-      securityContext:
-        fsGroup: {{ .Values.ruler.securityContext.fsGroup }}
+      {{- if .Values.ruler.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.ruler.podSecurityContext "enabled" | toYaml | nindent 8 }}
       {{- end }}
       {{- if and .Values.volumePermissions.enabled .Values.ruler.persistence.enabled }}
       initContainers:
@@ -56,7 +73,7 @@ spec:
             - -c
             - |
               mkdir -p /data
-              chown -R "{{ .Values.ruler.securityContext.runAsUser }}:{{ .Values.ruler.securityContext.fsGroup }}" /data
+              chown -R "{{ .Values.ruler.podSecurityContext.runAsUser }}:{{ .Values.ruler.podSecurityContext.fsGroup }}" /data
           securityContext:
             runAsUser: 0
           volumeMounts:
@@ -64,16 +81,19 @@ spec:
               mountPath: /data
       {{- end }}
       containers:
+        {{- if .Values.ruler.extraContainers }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.ruler.extraContainers  "context" $) | nindent 8 }}
+        {{- end }}
         - name: ruler
           image: {{ include "thanos.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
-          {{- if .Values.ruler.securityContext.enabled }}
-          securityContext:
-            runAsUser: {{ .Values.ruler.securityContext.runAsUser }}
+          {{- if .Values.ruler.containerSecurityContext.enabled }}
+          securityContext: {{- omit .Values.ruler.containerSecurityContext "enabled" | toYaml | nindent 12 }}
           {{- end }}
           args:
             - rule
             - --log.level={{ .Values.ruler.logLevel }}
+            - --log.format={{ .Values.ruler.logFormat }}
             - --grpc-address=0.0.0.0:10901
             - --http-address=0.0.0.0:10902
             - --data-dir=/data
@@ -81,25 +101,31 @@ spec:
             {{- range .Values.ruler.alertmanagers }}
             - --alertmanagers.url={{ . }}
             {{- end }}
-            {{- if and .Values.querier.enabled .Values.ruler.dnsDiscovery.enabled }}
-            - --query=dnssrv+_http._tcp.{{ include "thanos.fullname" . }}-querier.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
+            {{- if .Values.ruler.alertmanagersConfig }}
+            - --alertmanagers.config-file=/conf/alertmanagers/alertmanagers_config.yml
             {{- end }}
-            - --label=replica="$(POD_NAME)"
+            {{- if and $query.enabled .Values.ruler.dnsDiscovery.enabled }}
+            - --query=dnssrv+_http._tcp.{{ include "common.names.fullname" . }}-query.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
+            {{- end }}
+            - --label={{ .Values.ruler.replicaLabel }}="$(POD_NAME)"
             - --label=ruler_cluster="{{ .Values.ruler.clusterName }}"
-            - --alert.label-drop="replica"
-            - --objstore.config-file=/conf/objstore.yml
-            - --rule-file=/conf/ruler.yml
+            - --alert.label-drop={{ .Values.ruler.replicaLabel }}
+            - --objstore.config-file=/conf/objstore/objstore.yml
+            - --rule-file=/conf/rules/*.yml
             {{- range .Values.ruler.queries }}
             - --query={{ . }}
             {{- end }}
-            {{- range $key, $value := .Values.ruler.extraFlags }}
-            - --{{ $key }}{{ if $value }}={{ $value }}{{ end }}
+            {{- if .Values.ruler.extraFlags }}
+            {{- .Values.ruler.extraFlags | toYaml | nindent 12 }}
             {{- end }}
           env:
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            {{- if .Values.ruler.extraEnv }}
+            {{- toYaml .Values.ruler.extraEnv | nindent 12 }}
+            {{- end }}
           ports:
             - name: http
               containerPort: 10902
@@ -107,28 +133,45 @@ spec:
             - name: grpc
               containerPort: 10901
               protocol: TCP
-          {{- if .Values.ruler.livenessProbe }}
-          livenessProbe: {{- include "thanos.tplValue" (dict "value" .Values.ruler.livenessProbe "context" $) | nindent 12 }}
+          {{- if .Values.ruler.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: {{ .Values.ruler.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.ruler.livenessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.ruler.livenessProbe.periodSeconds }}
+            successThreshold: {{ .Values.ruler.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.ruler.livenessProbe.failureThreshold }}
           {{- end }}
-          {{- if .Values.ruler.readinessProbe }}
-          readinessProbe: {{- include "thanos.tplValue" (dict "value" .Values.ruler.readinessProbe "context" $) | nindent 12 }}
+          {{- if .Values.ruler.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: {{ .Values.ruler.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.ruler.readinessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.ruler.readinessProbe.periodSeconds }}
+            successThreshold: {{ .Values.ruler.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.ruler.readinessProbe.failureThreshold }}
           {{- end }}
           {{- if .Values.ruler.resources }}
           resources: {{- toYaml .Values.ruler.resources | nindent 12 }}
           {{- end }}
           volumeMounts:
             - name: ruler-config
-              mountPath: /conf/ruler.yml
-              subPath: ruler.yml
+              mountPath: /conf/rules
             - name: objstore-config
-              {{- if .Values.existingObjstoreSecretItems }}
-              mountPath: /conf
-              {{- else }}
-              mountPath: /conf/objstore.yml
-              subPath: objstore.yml
-              {{- end }}
+              mountPath: /conf/objstore
             - name: data
               mountPath: /data
+            {{- if .Values.ruler.alertmanagersConfig }}
+            - name: alertmanagers-config
+              mountPath: /conf/alertmanagers
+            {{- end }}
+            {{- if .Values.ruler.extraVolumeMounts }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.ruler.extraVolumeMounts "context" $) | nindent 12 }}
+            {{- end }}
       volumes:
         - name: ruler-config
           configMap:
@@ -139,6 +182,14 @@ spec:
             {{- if .Values.existingObjstoreSecretItems }}
             items: {{- toYaml .Values.existingObjstoreSecretItems | nindent 14 }}
             {{- end }}
+        {{- if .Values.ruler.alertmanagersConfig }}
+        - name: alertmanagers-config
+          secret:
+            secretName: {{ include "common.names.fullname" . }}-ruler-alertmanagers-config
+        {{- end }}
+        {{- if .Values.ruler.extraVolumes }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.ruler.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}
   {{- if and .Values.ruler.persistence.enabled .Values.ruler.persistence.existingClaim }}
         - name: data
           persistentVolumeClaim:
@@ -158,6 +209,6 @@ spec:
         resources:
           requests:
             storage: {{ .Values.ruler.persistence.size | quote }}
-        {{- include "thanos.ruler.storageClass" . | nindent 8 }}
+        {{- include "common.storage.class" (dict "persistence" .Values.ruler.persistence "global" .Values.global) | nindent 8 }}
   {{- end }}
 {{- end }}

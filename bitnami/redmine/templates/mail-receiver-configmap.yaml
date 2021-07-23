@@ -2,13 +2,21 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ template "redmine.fullname" . }}
-  labels: {{- include "redmine.labels" . | nindent 4 }}
+  name: {{ include "common.names.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: mail-receiver
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
 data:
   receive.sh: |
     #!/usr/bin/env bash
 
-    if [ $REDMINE_MAIL_RECEIVER_DEBUG ]; then 
+    if [ $REDMINE_MAIL_RECEIVER_DEBUG ]; then
         set -x
     fi
 
@@ -37,7 +45,7 @@ data:
     cd /opt/bitnami/redmine
 
     # Configuring Database connection
-    if [ $REDMINE_DB_MYSQL ]; then
+    if [ "$REDMINE_DATABASE_TYPE" = "mariadb" ]; then
     cat <<END > config/database.yml
         production:
             adapter: mysql2
@@ -48,7 +56,7 @@ data:
             port: <%= ENV["REDMINE_MAIL_RECEIVER_DB_PORT"] %>
             encoding: utf8
 
-        test: 
+        test:
             adapter: postgresql
             database: <%= ENV["REDMINE_MAIL_RECEIVER_DB_DATABASE"] %>
             host: <%= ENV["REDMINE_MAIL_RECEIVER_DB_POSTGRES"] %>
@@ -57,7 +65,7 @@ data:
             port: <%= ENV["REDMINE_MAIL_RECEIVER_DB_PORT"] %>
             encoding: utf8
     END
-    elif [ $REDMINE_DB_POSTGRES ]; then
+    elif [ "$REDMINE_DATABASE_TYPE" = "postgresql" ]; then
     cat <<END > config/database.yml
         test:
             adapter: mysql2
@@ -68,7 +76,7 @@ data:
             port: <%= ENV["REDMINE_MAIL_RECEIVER_DB_PORT"] %>
             encoding: utf8
 
-        production: 
+        production:
             adapter: postgresql
             database: <%= ENV["REDMINE_MAIL_RECEIVER_DB_DATABASE"] %>
             host: <%= ENV["REDMINE_MAIL_RECEIVER_DB_POSTGRES"] %>
@@ -98,15 +106,15 @@ data:
 
         if [ "$REDMINE_MAIL_RECEIVER_IMAP_MOVE_ON_FAILURE" != "" ]; then
             COMMAND="$COMMAND move_on_failure=\"$REDMINE_MAIL_RECEIVER_IMAP_MOVE_ON_FAILURE\" "
-        fi    
+        fi
 
-    elif [ "$REDMINE_MAIL_RECEIVER_PROTOCOL" = "IMAP" ]; then
+    elif [ "$REDMINE_MAIL_RECEIVER_PROTOCOL" = "POP3" ]; then
         COMMAND="bundle exec rake redmine:email:receive_pop3 --trace "
-        
+
         if [ "$REDMINE_MAIL_RECEIVER_POP3_DELETE_UNPROCESSED" != "" ]; then
             COMMAND="$COMMAND delete_unprocessed=\"$REDMINE_MAIL_RECEIVER_POP3_DELETE_UNPROCESSED\" "
         fi
-        
+
     else
         echo "Unsupported mail receive protocol. Exiting"
         exit 1
@@ -177,7 +185,7 @@ data:
         COMMAND="$COMMAND allow_override=\"$REDMINE_MAIL_RECEIVER_ALLOW_OVERRIDE\" "
     fi
 
-    if [ $REDMINE_MAIL_RECEIVER_DEBUG ]; then 
+    if [ $REDMINE_MAIL_RECEIVER_DEBUG ]; then
         echo "Unsecure printing mail receiving command"
         echo $COMMAND
         echo ""
@@ -199,7 +207,7 @@ data:
 
     # Execute command
     eval $COMMAND
-    echo "Email receiveing completed"
+    echo "Email receiving completed"
 
     exit 0
 {{- end -}}

@@ -1,13 +1,16 @@
 {{- if and .Values.rbac.create .Values.rbac.pspEnabled }}
 kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
+apiVersion: {{ include "common.capabilities.rbac.apiVersion" . }}
 metadata:
-  name: {{ template "node-exporter.fullname" . }}-psp
-  labels: {{- include "node-exporter.labels" . | nindent 4 }}
+  name: {{ template "common.names.fullname" . }}-psp
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
 rules:
   - apiGroups: ['extensions']
     resources: ['podsecuritypolicies']
     verbs: ['use']
     resourceNames:
-      - {{ template "node-exporter.fullname" . }}
+      - {{ template "common.names.fullname" . }}
 {{- end }}

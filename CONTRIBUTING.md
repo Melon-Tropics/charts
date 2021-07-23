@@ -16,7 +16,6 @@ Any type of contribution is welcome; from new features, bug fixes, documentation
 When submitting a PR make sure that it:
 - Must pass CI jobs for linting and test the changes on top of different k8s platforms. (Automatically done by the Bitnami CI/CD pipeline).
 - Must follow [Helm best practices](https://helm.sh/docs/chart_best_practices/).
-- Implements changes in both files if the chart contains a _values-production.yaml_ and a _values.yaml_.
 - Any change to a chart requires a version bump following [semver](https://semver.org/) principles. This is the version that is going to be merged in the GitHub repository, then our CI/CD system is going to publish in the Helm registry a new patch version including your changes and the latest images and dependencies.
 
 ### Documentation Requirements
@@ -35,9 +34,11 @@ When submitting a PR make sure that it:
 
 ***NOTE***: Please note that, in terms of time, may be a slight difference between the appearance of the code in GitHub and the chart in the registry.
 
+[Here](https://docs.bitnami.com/kubernetes/faq/get-started/understand-charts-release-process/) you can find more information about this process.
+
 ### Adding a new chart to the repository
 
 There are only three major requirements to add a new chart in our catalog:
 - The chart should use Bitnami based container images. If they don't exist, you can [open a GitHub issue](https://github.com/bitnami/charts/issues/new/choose) and we will work together to create them.
-- Follow the same structure/patterns that the rest of the Bitnami charts and the [Best Practices for Creating Production-Ready Helm charts](https://docs.bitnami.com/tutorials/production-ready-charts/) guide.
+- Follow the same structure/patterns that the rest of the Bitnami charts (you can find a basic scaffolding in the [`template` directory](https://github.com/bitnami/charts/tree/master/template)) and the [Best Practices for Creating Production-Ready Helm charts](https://docs.bitnami.com/tutorials/production-ready-charts/) guide.
 - Use an [OSI approved license](https://opensource.org/licenses) for all the software.

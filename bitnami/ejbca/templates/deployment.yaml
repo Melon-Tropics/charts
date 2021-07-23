@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "ejbca.fullname" . }}
+  name: {{ include "common.names.fullname" . }}
   labels: {{- include "common.labels.standard" . | nindent 4 }}
     {{- if .Values.commonLabels }}
     {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
@@ -25,7 +25,24 @@ spec:
         {{- include "common.tplvalues.render" (dict "value" .Values.podAnnotations "context" $) | nindent 8 }}
       {{- end }}
     spec:
-{{- include "ejbca.imagePullSecrets" . | nindent 6 }}
+      {{- include "ejbca.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.hostAliases }}
+      hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{- include "common.tplvalues.render" (dict "value" .Values.affinity "context" $) | nindent 8 }}
+      {{- else }}
+      affinity:
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.podAffinityPreset "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.podAntiAffinityPreset "context" $) | nindent 10 }}
+        nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.nodeAffinityPreset.type "key" .Values.nodeAffinityPreset.key "values" .Values.nodeAffinityPreset.values) | nindent 10 }}
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector: {{- include "common.tplvalues.render" (dict "value" .Values.nodeSelector "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.tolerations "context" $) | nindent 8 }}
+      {{- end }}
       {{- if .Values.podSecurityContext.enabled }}
       securityContext:
         fsGroup: {{ .Values.podSecurityContext.fsGroup }}
@@ -68,17 +85,19 @@ spec:
             - name: EJBCA_ADMIN_USERNAME
               value: {{ .Values.ejbcaAdminUsername | quote }}
             - name: EJBCA_DATABASE_HOST
-              value: {{ template "ejbca.databaseHost" . }}
+              value: {{ include "ejbca.databaseHost" . | quote }}
             - name: EJBCA_DATABASE_PORT
-              value: {{ template "ejbca.databasePort" . }}
+              value: {{ include "ejbca.databasePort" . | quote }}
             - name: EJBCA_DATABASE_NAME
-              value: {{ template "ejbca.databaseName" . }}
+              value: {{ include "ejbca.databaseName" . | quote }}
             - name: EJBCA_DATABASE_USERNAME
-              value: {{ template "ejbca.databaseUsername" . }}
+              value: {{ include "ejbca.databaseUsername" . | quote }}
             - name: EJBCA_HTTP_PORT_NUMBER
               value: {{ .Values.containerPorts.http | quote }}
             - name: EJBCA_HTTPS_PORT_NUMBER
-              value: {{ .Values.containerPorts.https | quote }}
+              value: {{ .Values.service.httpsPort | quote }}
+            - name: EJBCA_HTTPS_ADVERTISED_PORT_NUMBER
+              value: {{ .Values.service.advertisedHttpsPort | quote }}
             {{- if .Values.ejbcaKeystoreExistingSecret }}
             - name: EJBCA_SERVER_CERT_FILE
               value: /opt/bitnami/ejbca/mounted-jks/keystore.jks
@@ -161,19 +180,10 @@ spec:
         - name: ejbca-data
           {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ .Values.persistence.existingClaim | default (include "ejbca.fullname" .) }}
+            claimName: {{ .Values.persistence.existingClaim | default (include "common.names.fullname" .) }}
           {{- else }}
           emptyDir: {}
           {{ end }}
         {{- if .Values.extraVolumes }}
         {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumes "context" $) | nindent 8 }}
         {{- end }}
-      {{- if .Values.affinity }}
-      affinity: {{- include "common.tplvalues.render" (dict "value" .Values.affinity "context" $) | nindent 8 }}
-      {{- end }}
-      {{- if .Values.nodeSelector }}
-      nodeSelector: {{- include "common.tplvalues.render" (dict "value" .Values.nodeSelector "context" $) | nindent 8 }}
-      {{- end }}
-      {{- if .Values.tolerations }}
-      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.tolerations "context" $) | nindent 8 }}
-      {{- end }}
